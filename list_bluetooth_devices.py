@@ -34,7 +34,9 @@ def main(wf):
             type='file',
             title=name,
             subtitle=address,
-            uid=address
+            uid=address,
+            arg=address,
+            valid=True
         )
 
     wf.send_feedback()
