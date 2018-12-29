@@ -1,24 +1,46 @@
-import json
+#!/usr/bin/python
+# encoding: utf-8
+
 import sys
-from subprocess import check_output, Popen, PIPE
-import re
 
-bluetooth_devices_pipe = Popen(["/bin/bash", "-c", "/usr/libexec/PlistBuddy -c \"print :0:_items:0:device_title\" /dev/stdin <<< $(system_profiler SPBluetoothDataType -xml)"], stdout=PIPE)
-bluetooth_devices_raw, err = bluetooth_devices_pipe.communicate()
+from workflow import Workflow
 
-bluetooth_devices = re.findall(r"(?s).*?(?:Dict\s?\{)(.*?)\=.*?(?:device_addr)\s?\=\s?((?:[0-9A-F]{2}[:-]){5}(?:[0-9A-F]{2}))", bluetooth_devices_raw)
+log = None
 
-device_list = [{
-	"type": "file",
-	"title": device[0].replace('\n','').strip(),
-	"subtitle": device[1],
-	"arg": device[1]
-} for device in bluetooth_devices]
 
-sorted_device_list = sorted(device_list, key=lambda dev: dev['title'])
+def main(wf):
+    import json
+    import sys
+    from subprocess import check_output, Popen, PIPE
+    import re
 
-result = {"items": sorted_device_list}
+    bluetooth_devices_pipe = Popen(
+        ["/bin/bash", "-c", "/usr/libexec/PlistBuddy -c \"print :0:_items:0:device_title\" /dev/stdin <<< $(system_profiler SPBluetoothDataType -xml)"], stdout=PIPE)
+    bluetooth_devices_raw, err = bluetooth_devices_pipe.communicate()
 
-finalResult = json.dumps(result)
+    # The following regex is quite complex, though that is due to the fact that the Dicts provided by PlistBuddy are inconsistent in order. Therefore, the two fields we're reading "device_addr" and "device_isconnected" occur twice, in both orders. Below, we decide which of the two contains data and which doesn't.
+    # Feel free to try it out: https://regex101.com/r/GB5UKd/2
+    bluetooth_devices = re.findall(
+        r"(?s).*?(?:Dict\s?\{)\s*(.*?)\s?\=\s?(?:Dict).*?(?:(?:(?:device_isconnected)\s?\=\s?(?:attrib_((?:No|Yes))).*?(?:device_addr)\s?\=\s?((?:[0-9A-F]{2}[:-]){5}(?:[0-9A-F]{2})))|(?:(?:device_addr)\s?\=\s?((?:[0-9A-F]{2}[:-]){5}(?:[0-9A-F]{2})).*?(?:device_isconnected)\s?\=\s?(?:attrib_((?:No|Yes)))))", bluetooth_devices_raw)
 
-print(finalResult)
+    for device in bluetooth_devices:
+        address = device[3] if len(device[2]) == 0 else device[2]
+        connected = device[4] if len(device[1]) == 0 else device[1]
+        connected_text = "[Connected]" if connected == "Yes" else "[Disconnected]"
+
+        name = device[0] + " " + connected_text
+
+        wf.add_item(
+            type='file',
+            title=name,
+            subtitle=address,
+            uid=address
+        )
+
+    wf.send_feedback()
+
+
+if __name__ == '__main__':
+    wf = Workflow()
+    log = wf.logger
+    sys.exit(wf.run(main))
