@@ -14,36 +14,48 @@ def main(wf):
         wf.add_item('Update available for Alfred Bluetooth Connector!',
                     autocomplete='workflow:update',
                     valid=False)
-    else:
-        import json
-        import sys
-        from subprocess import check_output, Popen, PIPE
-        import re
+    import json
+    import sys
+    from subprocess import check_output, Popen, PIPE
+    import re
 
-        bluetooth_devices_pipe = Popen(
-            ["/bin/bash", "-c", "/usr/libexec/PlistBuddy -c \"print :0:_items:0:device_title\" /dev/stdin <<< $(system_profiler SPBluetoothDataType -xml)"], stdout=PIPE)
-        bluetooth_devices_raw, err = bluetooth_devices_pipe.communicate()
+    query = wf.args[0] if len(wf.args) else None
 
-        # The following regex is quite complex, though that is due to the fact that the Dicts provided by PlistBuddy are inconsistent in order. Therefore, the two fields we're reading "device_addr" and "device_isconnected" occur twice, in both orders. Below, we decide which of the two contains data and which doesn't.
-        # Feel free to try it out: https://regex101.com/r/GB5UKd/2
-        bluetooth_devices = re.findall(
-            r"(?s).*?(?:Dict\s?\{)\s*(.*?)\s?\=\s?(?:Dict).*?(?:(?:(?:device_isconnected)\s?\=\s?(?:attrib_((?:No|Yes))).*?(?:device_addr)\s?\=\s?((?:[0-9A-F]{2}[:-]){5}(?:[0-9A-F]{2})))|(?:(?:device_addr)\s?\=\s?((?:[0-9A-F]{2}[:-]){5}(?:[0-9A-F]{2})).*?(?:device_isconnected)\s?\=\s?(?:attrib_((?:No|Yes)))))", bluetooth_devices_raw)
+    bluetooth_devices_pipe = Popen(
+        ["/bin/bash", "-c", "/usr/libexec/PlistBuddy -c \"print :0:_items:0:device_title\" /dev/stdin <<< $(system_profiler SPBluetoothDataType -xml)"], stdout=PIPE)
+    bluetooth_devices_raw, err = bluetooth_devices_pipe.communicate()
 
-        for device in bluetooth_devices:
-            address = device[3] if len(device[2]) == 0 else device[2]
-            connected = device[4] if len(device[1]) == 0 else device[1]
-            connected_text = "[Connected]" if connected == "Yes" else "[Disconnected]"
+    # The following regex is quite complex, though that is due to the fact that the 'Dicts' provided by PlistBuddy are inconsistent in order. Therefore, the two fields we're reading "device_addr" and "device_isconnected" occur twice, in both orders. Below, we decide which of the two contains data and which doesn't.
+    # Feel free to try it out: https://regex101.com/r/GB5UKd/3
+    bluetooth_devices = re.findall(
+        r"(?s).*?(?:Dict\s?\{)\s*(.*?)\s?\=\s?(?:Dict).*?(?:(?:(?:device_isconnected)\s?\=\s?(?:attrib_((?:No|Yes))).*?(?:device_addr)\s?\=\s?((?:[0-9A-F]{2}[:-]){5}(?:[0-9A-F]{2})))|(?:(?:device_addr)\s?\=\s?((?:[0-9A-F]{2}[:-]){5}(?:[0-9A-F]{2})).*?(?:device_isconnected)\s?\=\s?(?:attrib_((?:No|Yes)))))", bluetooth_devices_raw)
 
-            name = device[0] + " " + connected_text
+    normalized_devices = []
 
-            wf.add_item(
-                type='file',
-                title=name,
-                subtitle=address,
-                uid=address,
-                arg=address,
-                valid=True
-            )
+    for device in bluetooth_devices:
+        address = device[3] if len(device[2]) == 0 else device[2]
+        connected = device[4] if len(device[1]) == 0 else device[1]
+        connected_text = "[Connected]" if connected == "Yes" else "[Disconnected]"
+
+        name = device[0] + " " + connected_text
+
+        normalized_devices.append({
+            'name_connected': name,
+            'address': address
+        })
+
+    if query:
+        normalized_devices = wf.filter(query, normalized_devices, key=lambda k: k['name_connected'])
+
+    for device in normalized_devices:
+        wf.add_item(
+            type='file',
+            title=device['name_connected'],
+            subtitle=device['address'],
+            uid=device['address'],
+            arg=device['address'],
+            valid=True
+        )
 
     wf.send_feedback()
 
