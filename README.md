@@ -7,3 +7,6 @@ The MAC address of a Bluetooth device is used to toggle the connection. Uses [la
 
 ## Installation
 To install the workflow, download the `.alfredworkflow` file from the [latest release](https://github.com/trietsch/alfred-bluetooth-connector/releases/latest).
+
+## Updates
+Future updates will be provided through the `blt workflow:update` command. You can always run this manually as well.
