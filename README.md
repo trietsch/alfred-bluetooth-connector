@@ -10,3 +10,5 @@ To install the workflow, download the `.alfredworkflow` file from the [latest re
 
 ## Updates
 Future updates will be provided through the `blt workflow:update` command. You can always run this manually as well.
+
+> For v0.1.0 users, please manually download v0.1.1, since this version does not include auto updates yet.
