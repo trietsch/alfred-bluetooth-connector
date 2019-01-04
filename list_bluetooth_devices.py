@@ -39,23 +39,33 @@ def main(wf):
 
         name = device[0] + " " + connected_text
 
-        normalized_devices.append({
-            'name_connected': name,
-            'address': address
-        })
+        if query:
+            normalized_devices.append({
+                'name_connected': name,
+                'address': address
+            })
+        else:
+            wf.add_item(
+                type='file',
+                title=name,
+                subtitle=address,
+                uid=address,
+                arg=address,
+                valid=True
+            )
 
     if query:
         normalized_devices = wf.filter(query, normalized_devices, key=lambda k: k['name_connected'])
 
-    for device in normalized_devices:
-        wf.add_item(
-            type='file',
-            title=device['name_connected'],
-            subtitle=device['address'],
-            uid=device['address'],
-            arg=device['address'],
-            valid=True
-        )
+        for device in normalized_devices:
+            wf.add_item(
+                type='file',
+                title=device['name_connected'],
+                subtitle=device['address'],
+                uid=device['address'],
+                arg=device['address'],
+                valid=True
+            )
 
     wf.send_feedback()
 
